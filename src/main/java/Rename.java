@@ -19,13 +19,6 @@ public class Rename {
     private static final SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
 
 
-    private static final String CARD = "Карточка";
-    private static final String OTHER_SIDE = "Контрагент";
-
-    private int cardCol;
-    private int sideCol;
-
-
     public void doWork(String pdfPath, String wbPath) throws IOException {
 
 
@@ -49,11 +42,11 @@ public class Rename {
                                 getName(filePath.getFileName().toString()
                                                 .replace(".pdf", "")
                                                 .replace("PDF", "")
-                                        , wbPath);
+                                        , wbPath, count);
 
                         if (!newFileName.trim().equals("")) {
-                            String endName = "Требования кредитора (" + newFileName + ") с приложениями на " + count + " л..pdf";
-                            Files.move(filePath, filePath.resolveSibling(endName));
+
+                            Files.move(filePath, filePath.resolveSibling(newFileName));
                         }
 
 
@@ -64,7 +57,7 @@ public class Rename {
     }
 
 
-    private String getName(String cardNum, String wbPath) throws IOException {
+    private String getName(String cardNum, String wbPath, int pagesCount) throws IOException {
 
         String data = "";
 
@@ -79,15 +72,23 @@ public class Rename {
             String cardTxt = getCellText(row.getCell(0)).trim();
 
             if (cardTxt.equalsIgnoreCase(cardNum)) {
-                data = getCellText(row.getCell(14))
-                        .trim()
-                        .replace("«", "")
-                        .replace("\"", "")
-                        .replace("Республика", "Р.")
-                        .replace("республика", "Р.")
-                        .replace("Республики", "Р.")
-                        .replace("республики", "Р.")
-                        .replace("»", "");
+
+                String chekCell = getCellText(row.getCell(3));
+                String onlyName = "";
+
+                if (chekCell.contains("#5")) {
+                    onlyName = cleanName(getCellText(row.getCell(15)));
+                    data = "Требования кредитора (" + onlyName + ") с приложениями на " + pagesCount + " л..pdf";
+                } else {
+
+
+                    String[] chekCellArr = chekCell.split("\n");
+                    data = chekCellArr[2].trim() + " " + chekCellArr[1] + " (" + chekCellArr[0] + ") на " + pagesCount + " л..pdf";
+
+
+                }
+
+
             }
         }
 
@@ -95,7 +96,26 @@ public class Rename {
 
         System.out.println(data);
 
-        return data;
+        return data
+                .replace("#","")
+                .replace("\r","")
+                .replace("\n","")
+                .replace("\\","")
+                .replace("/"," ");
+
+    }
+
+
+    private String cleanName(String txt) {
+
+        return txt.trim()
+                .replace("«", "")
+                .replace("\"", "")
+                .replace("Республика", "Р.")
+                .replace("республика", "Р.")
+                .replace("Республики", "Р.")
+                .replace("республики", "Р.")
+                .replace("»", "");
     }
 
 
