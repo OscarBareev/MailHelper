@@ -12,11 +12,35 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.stream.Stream;
 
 public class Rename {
 
     private static final SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+    Date date = new Date(System.currentTimeMillis());
+
+    public String xlsxPath = "";
+
+    private String findXlsxFile(String path) throws IOException {
+
+        Stream<Path> filePathStream = Files.walk(Paths.get(path));
+
+        filePathStream
+                .filter(Files::isRegularFile)
+                .filter(filePath -> filePath.toString().endsWith("xlsx"))
+                .forEach(filePath -> {
+                    xlsxPath = filePath.toString();
+                });
+
+        return xlsxPath;
+    }
+
+
+    public void doWork(String pdfPath) throws IOException {
+        doWork(pdfPath, findXlsxFile(pdfPath));
+    }
 
 
     public void doWork(String pdfPath, String wbPath) throws IOException {
@@ -33,29 +57,83 @@ public class Rename {
 
 
                     try {
-
-                        PDDocument doc = PDDocument.load(filePath.toFile());
-                        int count = doc.getNumberOfPages();
-                        doc.close();
-
-                        String newFileName =
-                                getName(filePath.getFileName().toString()
-                                                .replace(".pdf", "")
-                                                .replace("PDF", "")
-                                        , wbPath, count);
-
-                        if (!newFileName.trim().equals("")) {
-
-                            Files.move(filePath, filePath.resolveSibling(newFileName));
-                        }
-
-
+                        sortMail(filePath, wbPath);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 });
     }
 
+
+    private void sortMail(Path filePath, String wbPath) throws IOException {
+
+        String resultDir = filePath.getParent().getParent().toString() + "\\" + "Почта " + sdf.format(date);
+
+        if (!Files.exists(Paths.get(resultDir))) {
+            Files.createDirectory(Paths.get(resultDir));
+        }
+
+        String newFileName = getName(filePath.getFileName().toString(), wbPath, pagesNum(filePath));
+
+        String fileDir = resultDir;
+
+        if (newFileName.toLowerCase().contains("требования кредитора (")) {
+            fileDir = resultDir + "\\" + "Требоввния кредиторов";
+
+            if (!Files.exists(Paths.get(fileDir))) {
+                Files.createDirectory(Paths.get(fileDir));
+            }
+        } else if (newFileName.toLowerCase().contains("(3-")) {
+            fileDir = resultDir + "\\" + "3-ие лицо";
+
+            if (!Files.exists(Paths.get(fileDir))) {
+                Files.createDirectory(Paths.get(fileDir));
+            }
+        } else if (newFileName.toLowerCase().contains("(труд")) {
+            fileDir = resultDir + "\\" + "Трудовая инспекция";
+
+            if (!Files.exists(Paths.get(fileDir))) {
+                Files.createDirectory(Paths.get(fileDir));
+            }
+        } else if (newFileName.toLowerCase().contains("(ис")) {
+            fileDir = resultDir + "\\" + "Истец";
+
+            if (!Files.exists(Paths.get(fileDir))) {
+                Files.createDirectory(Paths.get(fileDir));
+            }
+        } else if (newFileName.toLowerCase().contains("(отв")) {
+            fileDir = resultDir + "\\" + "Ответчик";
+
+            if (!Files.exists(Paths.get(fileDir))) {
+                Files.createDirectory(Paths.get(fileDir));
+            }
+        } else if (newFileName.toLowerCase().contains("(б)")) {
+            fileDir = resultDir + "\\" + "Банкротное дело";
+
+            if (!Files.exists(Paths.get(fileDir))) {
+                Files.createDirectory(Paths.get(fileDir));
+            }
+        }
+
+        String finalPath = fileDir + "\\" + newFileName;
+
+        if (!Files.exists(Paths.get(finalPath))){
+            Files.move(filePath, Paths.get(finalPath));
+        }
+
+
+
+    }
+
+
+    private int pagesNum(Path filePath) throws IOException {
+
+        PDDocument doc = PDDocument.load(filePath.toFile());
+        int count = doc.getNumberOfPages();
+        doc.close();
+
+        return count;
+    }
 
     private String getName(String cardNum, String wbPath, int pagesCount) throws IOException {
 
@@ -71,7 +149,7 @@ public class Rename {
 
             String cardTxt = getCellText(row.getCell(0)).trim();
 
-            if (cardTxt.equalsIgnoreCase(cardNum)) {
+            if (cardTxt.equalsIgnoreCase(cardNum.replace(".pdf", "").replace(".PDF", ""))) {
 
                 String chekCell = getCellText(row.getCell(3));
                 String onlyName = "";
@@ -87,8 +165,6 @@ public class Rename {
 
 
                 }
-
-
             }
         }
 
@@ -97,12 +173,14 @@ public class Rename {
         System.out.println(data);
 
         return data
-                .replace("#","")
-                .replace("\r","")
-                .replace("\n","")
-                .replace("\\","")
-                .replace("/"," ");
-
+                .replace("#", "")
+                .replace("«", "")
+                .replace("\"", "")
+                .replace("»", "")
+                .replace("\r", "")
+                .replace("\n", "")
+                .replace("\\", "")
+                .replace("/", " ");
     }
 
 
@@ -150,5 +228,4 @@ public class Rename {
         }
         return result;
     }
-
 }
